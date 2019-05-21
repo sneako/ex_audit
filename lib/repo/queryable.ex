@@ -73,28 +73,7 @@ defmodule ExAudit.Queryable do
   @drop_fields [:__meta__, :__struct__]
 
   def revert(module, version, opts) do
-    import Ecto.Query
-
-    # get the history of the entity after this version
-
-    query =
-      from(
-        v in @version_schema,
-        where: v.entity_id == ^version.entity_id,
-        where: v.entity_schema == ^version.entity_schema,
-        where: v.recorded_at >= ^version.recorded_at,
-        order_by: [desc: :recorded_at]
-      )
-
-    versions = module.all(query)
-
-    # get the referenced struct as it exists now
-
-    struct = module.one(from(s in version.entity_schema, where: s.id == ^version.entity_id))
-
-    result = Enum.reduce(versions, struct, &_revert/2)
-
-    result = empty_map_to_nil(result)
+    {struct, result} = entity_before_version(module, version)
 
     schema = version.entity_schema
 
@@ -143,6 +122,31 @@ defmodule ExAudit.Queryable do
 
       {:ok, nil}
     end
+  end
+
+  def entity_before_version(module, version) do
+    import Ecto.Query
+
+    # get the history of the entity after this version
+
+    query =
+      from(
+        v in @version_schema,
+        where: v.entity_id == ^version.entity_id,
+        where: v.entity_schema == ^version.entity_schema,
+        where: v.recorded_at >= ^version.recorded_at,
+        order_by: [desc: :recorded_at]
+      )
+
+    versions = module.all(query)
+
+    # get the referenced struct as it exists now
+
+    struct = module.one(from(s in version.entity_schema, where: s.id == ^version.entity_id))
+
+    result = Enum.reduce(versions, struct, &_revert/2)
+
+    {struct, empty_map_to_nil(result)}
   end
 
   defp empty_map_to_nil(map) do

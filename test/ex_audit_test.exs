@@ -179,4 +179,28 @@ defmodule ExAuditTest do
 
     assert 2 = Repo.aggregate(query, :count, :id)
   end
+
+  test "can view old versions without rolling back the row in the database" do
+    params = %{
+      name: "Moritz Schmale",
+      email: "foo@bar.com"
+    }
+
+    changeset = User.changeset(%User{}, params)
+
+    {:ok, user} = Repo.insert(changeset)
+
+    params = %{
+      email: "real@email.com"
+    }
+    changeset = User.changeset(user, params)
+    {:ok, user} = Repo.update(changeset)
+
+    [_created, updated_version] = Repo.all(from v in Version,
+      where: v.entity_id == ^user.id,
+      where: v.entity_schema == ^User)
+
+    original = Repo.preview(updated_version)
+    assert original.email == "foo@bar.com"
+  end
 end

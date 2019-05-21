@@ -190,6 +190,11 @@ defmodule ExAudit.Repo do
       def revert(version, opts \\ []) do
         ExAudit.Queryable.revert(__MODULE__, version, opts)
       end
+
+      def preview(version) do
+        {_, result} = ExAudit.Queryable.entity_before_version(__MODULE__, version)
+        result
+      end
     end
   end
 
